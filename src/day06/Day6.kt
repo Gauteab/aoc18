@@ -27,7 +27,7 @@ fun solveA(): Int {
         for (a in 0 until grid.size) for (b in 0 until grid[0].size) {
             val distance = (abs(c.x - b) + abs(c.y - a))
             grid[a][b] = grid[a][b].let { when {
-                distance < it.second -> -c.id to distance
+                distance <  it.second -> -c.id to distance
                 distance == it.second -> 0 to distance
                 else -> it
             }}
@@ -38,17 +38,6 @@ fun solveA(): Int {
     for (a in 0 until grid.size) for (b in 0 until grid[0].size) {
         if (a == 0 || a == grid.size-1 || b == 0 || b == grid[0].size) edges.add(abs(grid[a][b].first))
     }
-
-//    grid.forEach {
-//        it.forEach {
-//            print(when {
-//                it.first == 0 -> '.'
-//                it.first  < 0 -> (abs(it.first)+96).toChar()
-//                else -> (abs(it.first)+64).toChar()
-//            })
-//        }
-//        println()
-//    }
 
     return input.map { (id,_,_) ->
         if (id in edges) id to 0
@@ -71,6 +60,6 @@ fun solveB(): Int {
 }
 
 fun main(args: Array<String>) {
-    //println("Part 1: ${solveA()}")
+    println("Part 1: ${solveA()}")
     println("Part 2: ${solveB()}")
 }
