@@ -1,3 +1,4 @@
+from sys import argv
 from dataclasses import dataclass
 from pathfinding.core.grid import Grid
 from pathfinding.finder.a_star import AStarFinder
@@ -8,14 +9,12 @@ class Unit:
     pos: tuple
     dmg: int = 3
     hp: int = 200
-    target: str = ''
 
-
-def read_input():
+def read_input(fname):
     grid = []
     units = {}
     id_count = 0
-    with open('input') as f:
+    with open(fname) as f:
         for y,line in enumerate(f):
             row = []
             for x,c in enumerate(line[:-1]):
@@ -72,54 +71,36 @@ def shortest(l):
     return min(f, key = lambda x: len(x)) if f else None
 
 def move(x, y, target, grid):
-    #print(f"x: {x}, y: {y}")
-    if not enemies(target,grid):
-        finish()
+    if not enemies(target,grid): finish()
     targets = find_targets(target, grid)
-    #print(f"targets: {targets}")
-    paths = [find_path(x,y,x2,y2,grid) for x2,y2 in targets]
-    #print(f"paths: {paths}")
+    paths = [p for p in [find_path(x,y,x2,y2,grid) for x2,y2 in targets] if p]
     if not paths: return
     min_path = shortest(paths)
     if not min_path:
         return
-    #print(f"min_path: {min_path}")
     target = min_path[-1]
     x2,y2 = target
     paths = [find_path(x,y,x2,y2,grid) for x,y in suroundings(x,y,grid)]
-    #print(f"paths: {paths}")
     min_path = shortest(paths)
-    #print(f"min_path: {min_path}")
     x2,y2 = min_path[0]
     units[grid[y][x]].pos = (x2,y2)
     swap(x,y,x2,y2,grid)
     return (x2,y2)
 
-def select_target(x1,y1,target,grid):
-    for x,y in reading_order(x1,y1):
-        if is_unit(grid[y][x]) and grid[y][x][0] == target:
-            return (x,y)
-
-def attack(attacker, target, grid):
+def attack(target, grid):
     target.hp -= 3
     if target.hp <= 0:
         x,y = target.pos
         grid[y][x] = '.'
-        attacker.target = ''
+        units.pop(target.id)
 
 def attempt_attack(x,y,target,grid):
-    attacker = units[grid[y][x]]
-    if attacker.target:
-        t = attacker.target
-    else:
-        t = select_target(x,y,target,grid)
-        if t:
-            x,y = t
-            t = units[grid[y][x]]
-    if t:
-        attack(attacker,t,grid)
-        return True
-    return False
+    targets = list(filter(lambda it: grid[it[1]][it[0]][0] == target, reading_order(x,y)))
+    if not targets: return False
+    targets = [units[grid[y][x]] for x,y in targets]
+    target = min(targets, key = lambda t: t.hp)
+    attack(target,grid)
+    return True
 
 def do_turn(x,y,grid):
     if not is_unit(grid[y][x]): return
@@ -130,16 +111,18 @@ def do_turn(x,y,grid):
             x2,y2 = m
             attempt_attack(x2,y2,target,grid)
 
-grid , units = read_input()
-
 def is_unit(s):
     return s[0] == 'E' or s[0] == 'G'
 
 def finish():
+    print("Finish!")
+    print_grid(grid)
     s = sum([units[x].hp for row in grid for x in row if is_unit(x)])
     print(f"Outcome: {round_c} * {s} = {round_c * s}")
     exit(0)
 
+
+grid , units = read_input('input' if len(argv) == 0 else argv[1])
 round_c = 0
 while True:
     print(round_c)
