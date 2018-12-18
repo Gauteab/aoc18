@@ -5,6 +5,7 @@ from pathfinding.finder.a_star import AStarFinder
 @dataclass
 class Unit:
     id: str
+    pos: tuple
     dmg: int = 3
     hp: int = 200
     target: str = ''
@@ -15,13 +16,13 @@ def read_input():
     units = {}
     id_count = 0
     with open('input') as f:
-        for line in f:
+        for y,line in enumerate(f):
             row = []
-            for c in line[:-1]:
+            for x,c in enumerate(line[:-1]):
                 if c == 'E' or c =='G':
                     uid = c + str(id_count)
                     row.append(uid)
-                    units.update({uid:Unit(uid)})
+                    units.update({uid:Unit(uid,(x,y))})
                     id_count += 1
                 else:
                     row.append(c)
@@ -38,12 +39,6 @@ def swap(x1, y1, x2, y2, grid):
     tmp = grid[y1][x1]
     grid[y1][x1] = grid[y2][x2]
     grid[y2][x2] = tmp
-
-def print_matrix(matrix):
-    for row in matrix:
-        for c in row:
-            print(c, end="")
-        print()
 
 def find_path(x1,y1,x2,y2,grid):
     matrix = [[0 if c[0] in ['G','E','#'] else 1 for c in row] for row in grid]
@@ -69,48 +64,88 @@ def find_targets(target, grid):
                     targets.append((x,y))
     return targets
 
+def enemies(target,grid):
+    return [c for row in grid for c in row if c[0] == target]
+
 def shortest(l):
-    return min(l, key = lambda x: len(x))
+    f = [x for x in l if x]
+    return min(f, key = lambda x: len(x)) if f else None
 
 def move(x, y, target, grid):
-    print(f"x: {x}, y: {y}")
+    #print(f"x: {x}, y: {y}")
+    if not enemies(target,grid):
+        finish()
     targets = find_targets(target, grid)
-    print(targets)
+    #print(f"targets: {targets}")
     paths = [find_path(x,y,x2,y2,grid) for x2,y2 in targets]
-    print(paths)
+    #print(f"paths: {paths}")
     if not paths: return
     min_path = shortest(paths)
-    print(min_path)
+    if not min_path:
+        return
+    #print(f"min_path: {min_path}")
     target = min_path[-1]
     x2,y2 = target
     paths = [find_path(x,y,x2,y2,grid) for x,y in suroundings(x,y,grid)]
+    #print(f"paths: {paths}")
     min_path = shortest(paths)
+    #print(f"min_path: {min_path}")
     x2,y2 = min_path[0]
+    units[grid[y][x]].pos = (x2,y2)
     swap(x,y,x2,y2,grid)
+    return (x2,y2)
 
 def select_target(x1,y1,target,grid):
     for x,y in reading_order(x1,y1):
         if is_unit(grid[y][x]) and grid[y][x][0] == target:
             return (x,y)
 
-def do_turn(x,y,grid):
-    unit = grid[y][x]
-    if not is_unit(unit): return
-    target = 'E' if grid[y][x][0] == 'G' else 'G'
-    t = select_target(x,y,target,grid)
-    if t:
-        return
-    move(x, y, target, grid)
+def attack(attacker, target, grid):
+    target.hp -= 3
+    if target.hp <= 0:
+        x,y = target.pos
+        grid[y][x] = '.'
+        attacker.target = ''
 
-grid , units= read_input()
+def attempt_attack(x,y,target,grid):
+    attacker = units[grid[y][x]]
+    if attacker.target:
+        t = attacker.target
+    else:
+        t = select_target(x,y,target,grid)
+        if t:
+            x,y = t
+            t = units[grid[y][x]]
+    if t:
+        attack(attacker,t,grid)
+        return True
+    return False
+
+def do_turn(x,y,grid):
+    if not is_unit(grid[y][x]): return
+    target = 'E' if grid[y][x][0] == 'G' else 'G'
+    if not attempt_attack(x,y,target,grid):
+        m = move(x, y, target, grid)
+        if m:
+            x2,y2 = m
+            attempt_attack(x2,y2,target,grid)
+
+grid , units = read_input()
 
 def is_unit(s):
     return s[0] == 'E' or s[0] == 'G'
 
+def finish():
+    s = sum([units[x].hp for row in grid for x in row if is_unit(x)])
+    print(f"Outcome: {round_c} * {s} = {round_c * s}")
+    exit(0)
+
+round_c = 0
 while True:
+    print(round_c)
     print_grid(grid)
     units_ = [(x,y) for y, row in enumerate(grid) for x,c in enumerate(row) if is_unit(c)]
-    input()
     for x,y in units_:
         do_turn(x,y,grid)
+    round_c += 1
 
