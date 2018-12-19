@@ -1,4 +1,3 @@
-
 def addr(a,b,c,r):
     r[c] = r[a] + r[b]
 
@@ -79,7 +78,37 @@ def solve_a(samples):
                     break
     return count
 
+def solve_b(samples):
+    codes = {code:(set(),set()) for code in range(0,16)}
+    for i in range(0, len(samples), 3):
+        before = samples[i]
+        code, a, b, c = samples[i+1]
+        after  = samples[i+2]
+        for op in ops:
+            r = before.copy()
+            op(a,b,c,r)
+            if r == after:
+                codes[code][0].add(op)
+            else:
+                codes[code][1].add(op)
+    codes = {code : sets[0] - sets[1] for code,sets in codes.items()}
+    while sum([len(s) for c,s in codes.items()]) > 16:
+        sorted_codes = sorted(codes, key = lambda k: len(codes[k]))
+        for v in sorted_codes:
+            s = codes[v]
+            if len(s) > 1: continue
+            for code in codes:
+                if not code == v:
+                    codes[code] -= s
+    r = [0] * 4
+    with open('program') as f:
+        for line in f:
+            s = list(map(int, line.split(' ')))
+            code,a,b,c = s
+            list(codes[code])[0](a,b,c,r)
+    return r[0]
+
 if __name__ == '__main__':
     samples = read_samples()
     print(f"Part 1: {solve_a(samples)}")
-
+    print(f"Part 2: {solve_b(samples)}")

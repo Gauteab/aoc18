@@ -10,6 +10,7 @@ class Unit:
     dmg: int = 3
     hp: int = 200
 
+damage = int(argv[2])
 def read_input(fname):
     grid = []
     units = {}
@@ -21,13 +22,15 @@ def read_input(fname):
                 if c == 'E' or c =='G':
                     uid = c + str(id_count)
                     row.append(uid)
-                    units.update({uid:Unit(uid,(x,y))})
+                    d = 3 if c=='G' else damage
+                    units[uid] = Unit(uid,(x,y),dmg=d)
                     id_count += 1
                 else:
                     row.append(c)
             grid.append(row)
     return (grid, units)
 
+grid , units = read_input('input' if len(argv) == 0 else argv[1])
 def print_grid(grid):
     for row in grid:
         for c in row:
@@ -40,7 +43,7 @@ def swap(x1, y1, x2, y2, grid):
     grid[y2][x2] = tmp
 
 def find_path(x1,y1,x2,y2,grid):
-    matrix = [[0 if c[0] in ['G','E','#'] else 1 for c in row] for row in grid]
+    matrix = [[0 if c[0] in 'GE#' else 1 for c in row] for row in grid]
     grid = Grid(matrix=matrix)
     start = grid.node(x1, y1)
     end = grid.node(x2, y2)
@@ -53,53 +56,62 @@ def reading_order(x,y):
 def suroundings(x,y,grid):
     return list(filter(lambda it: grid[it[1]][it[0]] == '.', reading_order(x,y)))
 
-def find_targets(target, grid):
-    targets = [] # List of (x,y)
-    for y,row in enumerate(grid):
-        for x,c in enumerate(row):
-            if not is_unit(c): continue
-            if c[0] == target:
-                for x,y in suroundings(x,y,grid):
-                    targets.append((x,y))
-    return targets
+def find_targets(target,grid):
+    return [v.pos for k,v in units.items() if k[0] == target]
+    #return [(x,y) for y,row in enumerate(grid) for x,c in enumerate(row) if c[0] == target]
 
-def enemies(target,grid):
-    return [c for row in grid for c in row if c[0] == target]
+def find_in_range(targets, grid):
+    in_range = []
+    for x, y in targets:
+        for x, y in suroundings(x,y,grid):
+            in_range.append((x,y))
+    return in_range
 
 def shortest(l):
-    f = [x for x in l if x]
-    return min(f, key = lambda x: len(x)) if f else None
+    return min(l, key = lambda x: len(x))
 
-def move(x, y, target, grid):
-    if not enemies(target,grid): finish()
+def move(ax, ay, target, grid):
+
     targets = find_targets(target, grid)
-    paths = [p for p in [find_path(x,y,x2,y2,grid) for x2,y2 in targets] if p]
-    if not paths: return
-    min_path = shortest(paths)
-    if not min_path:
-        return
-    target = min_path[-1]
-    x2,y2 = target
-    paths = [find_path(x,y,x2,y2,grid) for x,y in suroundings(x,y,grid)]
-    min_path = shortest(paths)
-    x2,y2 = min_path[0]
-    units[grid[y][x]].pos = (x2,y2)
-    swap(x,y,x2,y2,grid)
-    return (x2,y2)
+    if not targets: finish()
 
-def attack(target, grid):
-    target.hp -= 3
+    in_range = find_in_range(targets, grid)
+    if not in_range: return
+
+    reachable = [p for p in [find_path(ax,ay,x,y,grid) for x,y in in_range] if p]
+    if not reachable: return
+
+    chosen = shortest(reachable)[-1]
+    tx, ty = chosen
+
+    paths = [p for p in [find_path(x,y,tx,ty,grid) for x,y in suroundings(ax,ay,grid)] if p]
+    min_path = shortest(paths)
+
+    tx,ty = min_path[0]
+    units[grid[ay][ax]].pos = (tx,ty)
+    swap(ax,ay,tx,ty,grid)
+    return (tx,ty)
+
+class ElfDied(Exception):
+    pass
+
+def attack(attacker,target, grid):
+    print(attacker)
+    target.hp -= attacker.dmg
     if target.hp <= 0:
         x,y = target.pos
         grid[y][x] = '.'
+        if target.id[0] == 'E':
+            raise ElfDied()
         units.pop(target.id)
 
 def attempt_attack(x,y,target,grid):
+    attacker = units[grid[y][x]]
     targets = list(filter(lambda it: grid[it[1]][it[0]][0] == target, reading_order(x,y)))
     if not targets: return False
     targets = [units[grid[y][x]] for x,y in targets]
     target = min(targets, key = lambda t: t.hp)
-    attack(target,grid)
+    attack(attacker,target,grid)
     return True
 
 def do_turn(x,y,grid):
@@ -122,13 +134,20 @@ def finish():
     exit(0)
 
 
-grid , units = read_input('input' if len(argv) == 0 else argv[1])
-round_c = 0
-while True:
-    print(round_c)
-    print_grid(grid)
-    units_ = [(x,y) for y, row in enumerate(grid) for x,c in enumerate(row) if is_unit(c)]
-    for x,y in units_:
-        do_turn(x,y,grid)
-    round_c += 1
-
+def main():
+    global round_c
+    round_c = 0
+    while True:
+        print(round_c)
+        print_grid(grid)
+        units_ = [c for row in grid for c in row if is_unit(c)]
+        for u in units_:
+            if not u in units: continue
+            unit = units[u]
+            x, y = unit.pos
+            do_turn(x,y,grid)
+        round_c += 1
+try:
+    main()
+except ElfDied:
+    print("Elf died!")
