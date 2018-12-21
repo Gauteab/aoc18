@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from collections import deque
 from collections import namedtuple
 
@@ -60,7 +59,7 @@ for i in data:
                 seen[pos].add(step_len)
 
 shortest_paths = [ (pos, min(seen[pos])) for pos in seen ]
-part1 = max(shortest_paths, key = lambda p: p[1])
+part1 = max(shortest_paths, key = lambda p: p[1])[1]
 part2 = sum(1 for x in shortest_paths if x[1] >= 1000)
-print(f'Part 1: {part1[1]}')
+print(f'Part 1: {part1}')
 print(f'Part 2: {part2}')
